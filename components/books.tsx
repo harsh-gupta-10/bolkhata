@@ -10,7 +10,7 @@ import type { CustomerRow, EntryRow, RecordRow } from "@/lib/repo";
 import { contactPickerAvailable, pickContacts } from "@/lib/contacts";
 import { blankDraft, useShop } from "@/components/shop-provider";
 import { MemoryPanel } from "@/components/memory-panel";
-import { Badge, DataTable, EmptyState, Modal, PageHeader } from "@/components/ui-bits";
+import { Badge, DataTable, EmptyState, Modal, PageHeader, SampleTag } from "@/components/ui-bits";
 
 export function EntryBook({ type }: { type: "udhaar" | "payment" }) {
   const shop = useShop();
@@ -66,10 +66,14 @@ export function EntryBook({ type }: { type: "udhaar" | "payment" }) {
           card={(row) => {
             const today = new Date().toISOString().slice(0, 10);
             const isOverdue = type === "udhaar" && row.due_date && row.due_date < today;
+            const isSample = Boolean(row.is_sample) || (row.customer_phone && row.customer_phone.replace(/\D/g, "").startsWith("90000"));
             return (
               <span className="flex items-start justify-between gap-3">
                 <span className="min-w-0">
-                  <span className="block text-base font-semibold">{row.customer_name}</span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="block text-base font-semibold">{row.customer_name}</span>
+                    {isSample ? <SampleTag /> : null}
+                  </span>
                   <span className="mt-0.5 block text-sm text-[#616161]">{formatPhone(row.customer_phone ?? undefined) ?? "—"}{row.note ? ` · ${row.note}` : ""}</span>
                   <span className="mt-1 block text-xs whitespace-nowrap text-[#616161]">
                     {formatWhen(row.created_at)}
@@ -90,7 +94,20 @@ export function EntryBook({ type }: { type: "udhaar" | "payment" }) {
           }}
           columns={[
             { key: "date", header: shop.text("date"), sortValue: (row) => row.created_at, render: (row) => formatWhen(row.created_at) },
-            { key: "name", header: shop.text("customer"), sortValue: (row) => row.customer_name, render: (row) => <span className="font-medium">{row.customer_name}</span> },
+            {
+              key: "name",
+              header: shop.text("customer"),
+              sortValue: (row) => row.customer_name,
+              render: (row) => {
+                const isSample = Boolean(row.is_sample) || (row.customer_phone && row.customer_phone.replace(/\D/g, "").startsWith("90000"));
+                return (
+                  <span className="inline-flex items-center gap-1.5 font-medium">
+                    {row.customer_name}
+                    {isSample ? <SampleTag /> : null}
+                  </span>
+                );
+              },
+            },
             { key: "phone", header: shop.text("phone"), render: (row) => formatPhone(row.customer_phone ?? undefined) ?? "—" },
             { key: "note", header: shop.text("note"), render: (row) => row.note || "—" },
             {
@@ -168,41 +185,57 @@ export function RecordBook({ kind }: { kind: "rent" | "bill" }) {
           rows={rows}
           rowKey={(row) => row.id}
           onRow={setEditing}
-          card={(row) => (
-            <span className="flex items-start justify-between gap-3">
-              <span className="min-w-0">
-                <span className="block text-base font-semibold">{row.label}</span>
-                <span className="mt-0.5 block text-sm text-[#616161]">{row.party || "—"} · {row.period || "—"}</span>
-                <span className="mt-1 block text-xs whitespace-nowrap text-[#616161]">
-                  {formatWhen(row.created_at)} · {row.status === "paid" ? shop.text("paid") : shop.text("due")}
-                  {row.is_recurring ? ` · Har mahine ${row.recurring_day} ko` : ""}
+          card={(row) => {
+            const isSample = Boolean(row.is_sample);
+            return (
+              <span className="flex items-start justify-between gap-3">
+                <span className="min-w-0">
+                  <span className="flex items-center gap-1.5">
+                    <span className="block text-base font-semibold">{row.label}</span>
+                    {isSample ? <SampleTag /> : null}
+                  </span>
+                  <span className="mt-0.5 block text-sm text-[#616161]">{row.party || "—"} · {row.period || "—"}</span>
+                  <span className="mt-1 block text-xs whitespace-nowrap text-[#616161]">
+                    {formatWhen(row.created_at)} · {row.status === "paid" ? shop.text("paid") : shop.text("due")}
+                    {row.is_recurring ? ` · Har mahine ${row.recurring_day} ko` : ""}
+                  </span>
+                </span>
+                <span className="shrink-0 text-right">
+                  <span className="block text-base font-semibold tabular-nums">{formatRupees(row.amount)}</span>
+                  {row.status === "due" ? (
+                    <button
+                      type="button"
+                      className="mt-1 block text-xs font-semibold text-[#1f6b45] hover:underline"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        await fetch(`/api/records/${row.id}`, {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ status: "paid" }),
+                        });
+                        await shop.reload();
+                      }}
+                    >
+                      Mark Paid
+                    </button>
+                  ) : null}
                 </span>
               </span>
-              <span className="shrink-0 text-right">
-                <span className="block text-base font-semibold tabular-nums">{formatRupees(row.amount)}</span>
-                {row.status === "due" ? (
-                  <button
-                    type="button"
-                    className="mt-1 block text-xs font-semibold text-[#1f6b45] hover:underline"
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      await fetch(`/api/records/${row.id}`, {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ status: "paid" }),
-                      });
-                      await shop.reload();
-                    }}
-                  >
-                    Mark Paid
-                  </button>
-                ) : null}
-              </span>
-            </span>
-          )}
+            );
+          }}
           columns={[
             { key: "date", header: "Date", sortValue: (row) => row.created_at, render: (row) => formatWhen(row.created_at) },
-            { key: "label", header: "Label", sortValue: (row) => row.label, render: (row) => row.label },
+            {
+              key: "label",
+              header: "Label",
+              sortValue: (row) => row.label,
+              render: (row) => (
+                <span className="inline-flex items-center gap-1.5 font-medium">
+                  {row.label}
+                  {Boolean(row.is_sample) ? <SampleTag /> : null}
+                </span>
+              ),
+            },
             { key: "party", header: kind === "rent" ? "Landlord" : "Vendor", render: (row) => row.party || "—" },
             { key: "period", header: "Period", render: (row) => row.period || "—" },
             {
@@ -271,17 +304,38 @@ export function PeopleBook() {
           rows={rows}
           rowKey={(row) => row.id}
           onRow={(row) => router.push(`/app/grahak/${row.id}`)}
-          card={(row) => (
-            <span className="flex items-center justify-between gap-3">
-              <span className="min-w-0">
-                <span className="block text-base font-semibold">{row.name}</span>
-                <span className="mt-0.5 block text-sm text-[#616161]">{formatPhone(row.phone ?? undefined) ?? "—"}</span>
+          card={(row) => {
+            const isSample = Boolean(row.is_sample) || (row.phone && row.phone.replace(/\D/g, "").startsWith("90000"));
+            return (
+              <span className="flex items-center justify-between gap-3">
+                <span className="min-w-0">
+                  <span className="flex items-center gap-1.5">
+                    <span className="block text-base font-semibold">{row.name}</span>
+                    {isSample ? <SampleTag /> : null}
+                  </span>
+                  <span className="mt-0.5 block text-sm text-[#616161]">{formatPhone(row.phone ?? undefined) ?? "—"}</span>
+                </span>
+                <span className="shrink-0 text-base font-semibold tabular-nums">{formatRupees(Number(row.balance) || 0)}</span>
               </span>
-              <span className="shrink-0 text-base font-semibold tabular-nums">{formatRupees(Number(row.balance) || 0)}</span>
-            </span>
-          )}
+            );
+          }}
           columns={[
-            { key: "name", header: shop.text("field_name"), sortValue: (row) => row.name, render: (row) => <Link href={`/app/grahak/${row.id}`} className="font-medium" onClick={(event) => event.stopPropagation()}>{row.name}</Link> },
+            {
+              key: "name",
+              header: shop.text("field_name"),
+              sortValue: (row) => row.name,
+              render: (row) => {
+                const isSample = Boolean(row.is_sample) || (row.phone && row.phone.replace(/\D/g, "").startsWith("90000"));
+                return (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Link href={`/app/grahak/${row.id}`} className="font-medium" onClick={(event) => event.stopPropagation()}>
+                      {row.name}
+                    </Link>
+                    {isSample ? <SampleTag /> : null}
+                  </span>
+                );
+              },
+            },
             { key: "phone", header: shop.text("phone"), sortValue: (row) => row.phone ?? "", render: (row) => formatPhone(row.phone ?? undefined) ?? "—" },
             { key: "balance", header: shop.text("balance"), align: "right", sortValue: (row) => Number(row.balance), render: (row) => formatRupees(Number(row.balance) || 0) },
             { key: "edit", header: "", render: (row) => <button type="button" className="text-sm font-medium" onClick={(event) => { event.stopPropagation(); setEditing(row); }}>Edit</button> },
@@ -300,6 +354,7 @@ export function PersonDetail({ id }: { id: string }) {
   const [statementOpen, setStatementOpen] = useState(false);
   const customer = shop.data.customers.find((item) => item.id === id);
   if (!customer) return <main className="px-6 py-16">Yeh grahak nahi mila.</main>;
+  const isCustomerSample = Boolean(customer.is_sample) || (customer.phone && customer.phone.replace(/\D/g, "").startsWith("90000"));
   const entries = shop.data.entries.filter((entry) => entry.customer_id === id);
   const balance = Number(customer.balance) || 0;
   const digits = customer.phone?.replace(/\D/g, "") ?? "";
@@ -317,7 +372,10 @@ export function PersonDetail({ id }: { id: string }) {
       <Link href="/app/grahak" className="text-sm text-[#616161]">Grahak</Link>
       <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">{customer.name}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold">{customer.name}</h1>
+            {isCustomerSample ? <SampleTag /> : null}
+          </div>
           <p className="text-lg tabular-nums">{formatPhone(customer.phone ?? undefined) ?? "Phone nahi"}</p>
           <div className="mt-3 flex items-baseline gap-4">
             <div>

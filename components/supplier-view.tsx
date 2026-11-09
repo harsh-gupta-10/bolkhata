@@ -6,7 +6,7 @@ import { formatPhone, formatRupees, formatWhen } from "@/lib/format";
 import { wholeRupees } from "@/lib/money";
 import type { SupplierPurchaseRow } from "@/lib/repo";
 import { useShop } from "@/components/shop-provider";
-import { Badge, Modal, PageHeader } from "@/components/ui-bits";
+import { Badge, Modal, PageHeader, SampleTag } from "@/components/ui-bits";
 
 export function SupplierView() {
   const shop = useShop();
@@ -152,7 +152,10 @@ export function SupplierView() {
                 <div>
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h3 className="font-bold text-base text-[#1a1c1e]">{p.supplier_name}</h3>
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="font-bold text-base text-[#1a1c1e]">{p.supplier_name}</h3>
+                        {Boolean(p.is_sample) ? <SampleTag /> : null}
+                      </div>
                       {p.supplier_phone ? (
                         <p className="text-xs text-[#616161]">{formatPhone(p.supplier_phone)}</p>
                       ) : null}

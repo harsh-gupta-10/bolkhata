@@ -10,6 +10,7 @@ export interface Entry {
   runningBalance: number;
   transcript?: string;
   dueDate?: string;
+  isSample?: number;
 }
 
 export interface Customer {
@@ -20,6 +21,7 @@ export interface Customer {
   entries: Entry[];
   balance: number;
   creditLimit?: number;
+  isSample?: number;
 }
 
 export type ShopKind = "rent" | "bill";
@@ -40,6 +42,7 @@ export interface ShopRecord {
   transcript?: string;
   isRecurring?: number;
   recurringDay?: number;
+  isSample?: number;
 }
 
 export type RentalAssetType = "property" | "equipment" | "other";
@@ -61,6 +64,7 @@ export interface RentalAsset {
   notes?: string;
   createdAt: string;
   updatedAt: string;
+  isSample?: number;
 }
 
 export interface RentalAgreement {
@@ -86,6 +90,7 @@ export interface RentalAgreement {
   assetType?: RentalAssetType;
   customerName?: string;
   customerPhone?: string | null;
+  isSample?: number;
 }
 
 export interface RentalPayment {
@@ -100,6 +105,7 @@ export interface RentalPayment {
   note?: string;
   createdAt: string;
   insertedAt?: string;
+  isSample?: number;
 }
 
 export interface SupplierPurchase {
@@ -113,6 +119,7 @@ export interface SupplierPurchase {
   note?: string;
   createdAt: string;
   insertedAt?: string;
+  isSample?: number;
 }
 
 export type DraftIntent =

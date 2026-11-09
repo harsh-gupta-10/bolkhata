@@ -27,7 +27,7 @@ import {
 } from "@/lib/rentals-math";
 import type { RentalAgreementRow, RentalAssetRow, RentalPaymentRow } from "@/lib/repo";
 import { blankDraft, useShop } from "@/components/shop-provider";
-import { Badge, Modal, PageHeader } from "@/components/ui-bits";
+import { Badge, Modal, PageHeader, SampleTag } from "@/components/ui-bits";
 import { RecordBook } from "@/components/books";
 
 export function RentalsView({ initialTab = "income" }: { initialTab?: "income" | "expense" }) {
@@ -255,7 +255,10 @@ export function RentalsView({ initialTab = "income" }: { initialTab?: "income" |
                         <span className="text-[11px] font-semibold tracking-wider text-[#8d5a2b] uppercase">
                           {asset.type === "property" ? "Property" : asset.type === "equipment" ? "Equipment" : "Other"}
                         </span>
-                        <h3 className="text-base font-bold text-[#1a1c1e]">{asset.name}</h3>
+                        <div className="flex items-center gap-1.5">
+                          <h3 className="text-base font-bold text-[#1a1c1e]">{asset.name}</h3>
+                          {Boolean(asset.is_sample) ? <SampleTag /> : null}
+                        </div>
                       </div>
                       <Badge
                         tone={
@@ -302,7 +305,10 @@ export function RentalsView({ initialTab = "income" }: { initialTab?: "income" |
                     {activeAgreement && tenant ? (
                       <div className="mt-3 rounded-lg bg-[#f8f9fa] p-2.5 text-xs">
                         <div className="flex items-center justify-between">
-                          <span className="font-semibold text-[#1a1c1e]">{tenant.name}</span>
+                          <span className="flex items-center gap-1.5 font-semibold text-[#1a1c1e]">
+                            {tenant.name}
+                            {Boolean(activeAgreement.is_sample) ? <SampleTag /> : null}
+                          </span>
                           <span className="tabular-nums text-[#616161]">{formatPhone(tenant.phone ?? undefined)}</span>
                         </div>
                         <div className="mt-1.5 flex items-center justify-between text-[#616161]">

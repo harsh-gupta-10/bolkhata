@@ -13,6 +13,7 @@ export interface CustomerRow {
   created_at: string;
   balance: number;
   credit_limit: number;
+  is_sample?: number;
 }
 
 export interface EntryRow {
@@ -28,6 +29,7 @@ export interface EntryRow {
   transcript: string | null;
   created_at: string;
   due_date: string | null;
+  is_sample?: number;
 }
 
 export interface RecordRow {
@@ -45,6 +47,7 @@ export interface RecordRow {
   created_at: string;
   is_recurring: number;
   recurring_day: number | null;
+  is_sample?: number;
 }
 
 export async function listCustomers(shopId: string): Promise<CustomerRow[]> {
@@ -52,6 +55,7 @@ export async function listCustomers(shopId: string): Promise<CustomerRow[]> {
   return db.all<CustomerRow>(
     `SELECT customers.id, customers.shop_id, customers.name, customers.phone, customers.created_at,
             COALESCE(customers.credit_limit, 0) AS credit_limit,
+            COALESCE(customers.is_sample, 0) AS is_sample,
             COALESCE((
               SELECT running_balance FROM entries
               WHERE entries.customer_id = customers.id AND entries.shop_id = customers.shop_id
@@ -71,7 +75,8 @@ export async function listEntries(shopId: string, type?: "udhaar" | "payment"): 
   return db.all<EntryRow>(
     `SELECT entries.id, entries.shop_id, entries.customer_id, customers.name AS customer_name,
             customers.phone AS customer_phone, entries.type, entries.amount, entries.note,
-            entries.running_balance, entries.transcript, entries.created_at, entries.due_date
+            entries.running_balance, entries.transcript, entries.created_at, entries.due_date,
+            COALESCE(entries.is_sample, 0) AS is_sample
      FROM entries JOIN customers ON customers.id = entries.customer_id AND customers.shop_id = entries.shop_id
      WHERE entries.shop_id = ? ${typeSql}
      ORDER BY entries.created_at DESC, entries.id DESC`,
@@ -85,7 +90,8 @@ export async function listRecords(shopId: string, kind?: "rent" | "bill"): Promi
   const params = kind ? [shopId, kind] : [shopId];
   return db.all<RecordRow>(
     `SELECT id, shop_id, kind, status, amount, label, bill_kind, party, period, note, transcript, created_at,
-            COALESCE(is_recurring, 0) AS is_recurring, recurring_day
+            COALESCE(is_recurring, 0) AS is_recurring, recurring_day,
+            COALESCE(is_sample, 0) AS is_sample
      FROM shop_records WHERE shop_id = ? ${kindSql}
      ORDER BY created_at DESC, id DESC`,
     ...params,
@@ -103,15 +109,16 @@ export async function resolveName(shopId: string, query: string) {
   return presentPeople(query, people);
 }
 
-export async function createCustomer(shopId: string, input: { name: string; phone?: string | null; creditLimit?: number | null }): Promise<CustomerRow> {
+export async function createCustomer(shopId: string, input: { name: string; phone?: string | null; creditLimit?: number | null; isSample?: number }): Promise<CustomerRow> {
   const db = await getDb();
   const phone = normalizePhone(input.phone);
   if (!phone) throw new Error("Phone zaroori hai.");
   const id = crypto.randomUUID();
   const created = new Date().toISOString();
   const creditLimit = input.creditLimit != null ? Math.max(0, Math.round(input.creditLimit)) : 0;
+  const isSample = input.isSample ? 1 : 0;
   await db.run(
-    `INSERT INTO customers (id, shop_id, name, phone, created_at, inserted_at, credit_limit) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO customers (id, shop_id, name, phone, created_at, inserted_at, credit_limit, is_sample) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     shopId,
     input.name.trim(),
@@ -119,9 +126,10 @@ export async function createCustomer(shopId: string, input: { name: string; phon
     created,
     created,
     creditLimit,
+    isSample,
   );
   await rememberNode(shopId, { customerId: id, name: input.name.trim(), phone, balance: 0, intent: "add_customer" });
-  return { id, shop_id: shopId, name: input.name.trim(), phone, created_at: created, balance: 0, credit_limit: creditLimit };
+  return { id, shop_id: shopId, name: input.name.trim(), phone, created_at: created, balance: 0, credit_limit: creditLimit, is_sample: isSample };
 }
 
 export async function stampPhone(shopId: string, customerId: string, phone: string): Promise<void> {
@@ -152,11 +160,11 @@ export async function updateCustomer(shopId: string, id: string, input: { name: 
 
 export async function addEntry(
   shopId: string,
-  input: { customerId: string; type: "udhaar" | "payment"; amount: number; note?: string | null; transcript?: string | null; createdAt?: string; dueDate?: string | null },
+  input: { customerId: string; type: "udhaar" | "payment"; amount: number; note?: string | null; transcript?: string | null; createdAt?: string; dueDate?: string | null; isSample?: number },
 ): Promise<{ id: string; balance: number }> {
   const db = await getDb();
-  const owned = await db.get<{ id: string; phone: string | null }>(
-    `SELECT id, phone FROM customers WHERE id = ? AND shop_id = ?`,
+  const owned = await db.get<{ id: string; phone: string | null; is_sample?: number }>(
+    `SELECT id, phone, is_sample FROM customers WHERE id = ? AND shop_id = ?`,
     input.customerId,
     shopId,
   );
@@ -165,9 +173,10 @@ export async function addEntry(
   const named = await db.get<{ name: string }>(`SELECT name FROM customers WHERE id = ? AND shop_id = ?`, input.customerId, shopId);
   const id = crypto.randomUUID();
   const inserted = new Date().toISOString();
+  const isSample = input.isSample != null ? (input.isSample ? 1 : 0) : (owned.is_sample ? 1 : 0);
   await db.run(
-    `INSERT INTO entries (id, shop_id, customer_id, type, amount, note, running_balance, transcript, created_at, inserted_at, due_date)
-     VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`,
+    `INSERT INTO entries (id, shop_id, customer_id, type, amount, note, running_balance, transcript, created_at, inserted_at, due_date, is_sample)
+     VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`,
     id,
     shopId,
     input.customerId,
@@ -178,6 +187,7 @@ export async function addEntry(
     input.createdAt ?? inserted,
     inserted,
     input.dueDate ?? null,
+    isSample,
   );
   const balance = await recompute(db, shopId, input.customerId);
   if (named) await syncDerivedMemory(shopId, input.customerId, named.name, owned.phone);
@@ -231,14 +241,15 @@ export async function addRecord(
     createdAt?: string;
     isRecurring?: number | null;
     recurringDay?: number | null;
+    isSample?: number;
   },
 ): Promise<{ id: string }> {
   const db = await getDb();
   const id = crypto.randomUUID();
   const inserted = new Date().toISOString();
   await db.run(
-    `INSERT INTO shop_records (id, shop_id, kind, status, amount, label, bill_kind, party, period, note, transcript, created_at, inserted_at, is_recurring, recurring_day)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO shop_records (id, shop_id, kind, status, amount, label, bill_kind, party, period, note, transcript, created_at, inserted_at, is_recurring, recurring_day, is_sample)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     shopId,
     input.kind,
@@ -254,6 +265,7 @@ export async function addRecord(
     inserted,
     input.isRecurring ? 1 : 0,
     input.recurringDay ?? null,
+    input.isSample ? 1 : 0,
   );
   return { id };
 }
@@ -611,6 +623,7 @@ export interface RentalAssetRow {
   updated_at: string;
   rate_amount: number;
   security_deposit_amount: number;
+  is_sample?: number;
 }
 
 export async function listRentalAssets(shopId: string, status?: string): Promise<RentalAssetRow[]> {
@@ -619,7 +632,8 @@ export async function listRentalAssets(shopId: string, status?: string): Promise
   const params = status ? [shopId, status] : [shopId];
   return db.all<RentalAssetRow>(
     `SELECT id, shop_id, name, type, description, rate, rate_period, security_deposit, status, notes, created_at, updated_at,
-            rate AS rate_amount, security_deposit AS security_deposit_amount
+            rate AS rate_amount, security_deposit AS security_deposit_amount,
+            COALESCE(is_sample, 0) AS is_sample
      FROM rental_assets WHERE shop_id = ? ${statusSql}
      ORDER BY created_at DESC`,
     ...params,
@@ -629,7 +643,7 @@ export async function listRentalAssets(shopId: string, status?: string): Promise
 export async function getRentalAsset(shopId: string, id: string): Promise<RentalAssetRow | null> {
   const db = await getDb();
   return db.get<RentalAssetRow>(
-    `SELECT *, rate AS rate_amount, security_deposit AS security_deposit_amount FROM rental_assets WHERE id = ? AND shop_id = ?`,
+    `SELECT *, rate AS rate_amount, security_deposit AS security_deposit_amount, COALESCE(is_sample, 0) AS is_sample FROM rental_assets WHERE id = ? AND shop_id = ?`,
     id,
     shopId,
   );
@@ -645,15 +659,17 @@ export async function createRentalAsset(
     ratePeriod: "per_day" | "per_week" | "per_month" | "one_time";
     securityDeposit?: number;
     notes?: string | null;
+    isSample?: number;
   },
 ): Promise<RentalAssetRow> {
   const db = await getDb();
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
   const deposit = Math.max(0, Math.round(Number(input.securityDeposit) || 0));
+  const isSample = input.isSample ? 1 : 0;
   await db.run(
-    `INSERT INTO rental_assets (id, shop_id, name, type, description, rate, rate_period, security_deposit, status, notes, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'available', ?, ?, ?)`,
+    `INSERT INTO rental_assets (id, shop_id, name, type, description, rate, rate_period, security_deposit, status, notes, created_at, updated_at, is_sample)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'available', ?, ?, ?, ?)`,
     id,
     shopId,
     input.name.trim(),
@@ -665,6 +681,7 @@ export async function createRentalAsset(
     input.notes?.trim() || null,
     now,
     now,
+    isSample,
   );
   return {
     id,
@@ -681,6 +698,7 @@ export async function createRentalAsset(
     updated_at: now,
     rate_amount: Math.round(input.rate),
     security_deposit_amount: deposit,
+    is_sample: isSample,
   };
 }
 
@@ -752,6 +770,7 @@ export interface RentalAgreementRow {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  is_sample?: number;
 }
 
 export async function listRentalAgreements(shopId: string, status?: "active" | "ended"): Promise<RentalAgreementRow[]> {
@@ -764,7 +783,8 @@ export async function listRentalAgreements(shopId: string, status?: "active" | "
             ra.start_date, ra.end_date, ra.end_date AS expected_end_date, ra.actual_return_date,
             ra.rate, ra.rate AS rate_amount, ra.rate_period,
             ra.deposit_taken, ra.deposit_taken AS deposit_amount, ra.deposit_returned, ra.deposit_deductions, ra.deposit_deduction_reason,
-            ra.due_day, ra.status, ra.notes, ra.created_at, ra.updated_at
+            ra.due_day, ra.status, ra.notes, ra.created_at, ra.updated_at,
+            COALESCE(ra.is_sample, 0) AS is_sample
      FROM rental_agreements ra
      JOIN rental_assets asset ON asset.id = ra.asset_id AND asset.shop_id = ra.shop_id
      JOIN customers cust ON cust.id = ra.customer_id AND cust.shop_id = ra.shop_id
@@ -781,7 +801,8 @@ export async function getRentalAgreement(shopId: string, id: string): Promise<Re
             ra.customer_id, cust.name AS customer_name, cust.phone AS customer_phone,
             ra.start_date, ra.end_date, ra.actual_return_date, ra.rate, ra.rate_period,
             ra.deposit_taken, ra.deposit_returned, ra.deposit_deductions, ra.deposit_deduction_reason,
-            ra.due_day, ra.status, ra.notes, ra.created_at, ra.updated_at
+            ra.due_day, ra.status, ra.notes, ra.created_at, ra.updated_at,
+            COALESCE(ra.is_sample, 0) AS is_sample
      FROM rental_agreements ra
      JOIN rental_assets asset ON asset.id = ra.asset_id AND asset.shop_id = ra.shop_id
      JOIN customers cust ON cust.id = ra.customer_id AND cust.shop_id = ra.shop_id
@@ -803,6 +824,7 @@ export async function createRentalAgreement(
     depositTaken?: number;
     dueDay?: number | null;
     notes?: string | null;
+    isSample?: number;
   },
 ): Promise<RentalAgreementRow> {
   const db = await getDb();
@@ -817,10 +839,11 @@ export async function createRentalAgreement(
   const rate = input.rate != null ? Math.round(input.rate) : asset.rate;
   const ratePeriod = input.ratePeriod || asset.rate_period;
   const deposit = input.depositTaken != null ? Math.round(input.depositTaken) : asset.security_deposit;
+  const isSample = input.isSample ? 1 : 0;
 
   await db.run(
-    `INSERT INTO rental_agreements (id, shop_id, asset_id, customer_id, start_date, end_date, actual_return_date, rate, rate_period, deposit_taken, deposit_returned, deposit_deductions, deposit_deduction_reason, due_day, status, notes, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, 0, 0, NULL, ?, 'active', ?, ?, ?)`,
+    `INSERT INTO rental_agreements (id, shop_id, asset_id, customer_id, start_date, end_date, actual_return_date, rate, rate_period, deposit_taken, deposit_returned, deposit_deductions, deposit_deduction_reason, due_day, status, notes, created_at, updated_at, is_sample)
+     VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, 0, 0, NULL, ?, 'active', ?, ?, ?, ?)`,
     id,
     shopId,
     input.assetId,
@@ -834,6 +857,7 @@ export async function createRentalAgreement(
     input.notes?.trim() || null,
     now,
     now,
+    isSample,
   );
 
   await db.run(`UPDATE rental_assets SET status = 'rented', updated_at = ? WHERE id = ? AND shop_id = ?`, now, input.assetId, shopId);
@@ -866,6 +890,7 @@ export async function createRentalAgreement(
     notes: input.notes?.trim() || null,
     created_at: now,
     updated_at: now,
+    is_sample: isSample,
   };
 }
 
@@ -955,6 +980,7 @@ export interface RentalPaymentRow {
   note: string | null;
   created_at: string;
   inserted_at: string;
+  is_sample?: number;
 }
 
 export async function listRentalPayments(shopId: string, agreementId?: string): Promise<RentalPaymentRow[]> {
@@ -964,7 +990,8 @@ export async function listRentalPayments(shopId: string, agreementId?: string): 
   return db.all<RentalPaymentRow>(
     `SELECT rp.id, rp.shop_id, rp.agreement_id, rp.customer_id, cust.name AS customer_name,
             rp.asset_id, asset.name AS asset_name, rp.amount, rp.payment_date, rp.mode, rp.note,
-            rp.created_at, rp.inserted_at
+            rp.created_at, rp.inserted_at,
+            COALESCE(rp.is_sample, 0) AS is_sample
      FROM rental_payments rp
      JOIN customers cust ON cust.id = rp.customer_id AND cust.shop_id = rp.shop_id
      JOIN rental_assets asset ON asset.id = rp.asset_id AND asset.shop_id = rp.shop_id
@@ -982,11 +1009,12 @@ export async function addRentalPayment(
     paymentDate?: string;
     mode?: "cash" | "UPI" | "other";
     note?: string | null;
+    isSample?: number;
   },
 ): Promise<{ id: string; agreementId: string; amount: number }> {
   const db = await getDb();
-  const agreement = await db.get<{ asset_id: string; customer_id: string }>(
-    `SELECT asset_id, customer_id FROM rental_agreements WHERE id = ? AND shop_id = ?`,
+  const agreement = await db.get<{ asset_id: string; customer_id: string; is_sample?: number }>(
+    `SELECT asset_id, customer_id, is_sample FROM rental_agreements WHERE id = ? AND shop_id = ?`,
     input.agreementId,
     shopId,
   );
@@ -997,10 +1025,11 @@ export async function addRentalPayment(
   const paymentDate = input.paymentDate ? input.paymentDate.slice(0, 10) : getIstTodayString();
   const amount = Math.round(input.amount);
   const mode = input.mode === "UPI" || input.mode === "other" ? input.mode : "cash";
+  const isSample = input.isSample != null ? (input.isSample ? 1 : 0) : (agreement.is_sample ? 1 : 0);
 
   await db.run(
-    `INSERT INTO rental_payments (id, shop_id, agreement_id, customer_id, asset_id, amount, payment_date, mode, note, created_at, inserted_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO rental_payments (id, shop_id, agreement_id, customer_id, asset_id, amount, payment_date, mode, note, created_at, inserted_at, is_sample)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     shopId,
     input.agreementId,
@@ -1012,6 +1041,7 @@ export async function addRentalPayment(
     input.note?.trim() || null,
     inserted,
     inserted,
+    isSample,
   );
 
   return { id, agreementId: input.agreementId, amount };
@@ -1077,6 +1107,7 @@ export interface SupplierPurchaseRow {
   note: string | null;
   created_at: string;
   inserted_at: string;
+  is_sample?: number;
 }
 
 export async function listSupplierPurchases(shopId: string, status?: "paid" | "pending"): Promise<SupplierPurchaseRow[]> {
@@ -1084,7 +1115,8 @@ export async function listSupplierPurchases(shopId: string, status?: "paid" | "p
   const statusSql = status ? "AND status = ?" : "";
   const params = status ? [shopId, status] : [shopId];
   return db.all<SupplierPurchaseRow>(
-    `SELECT id, shop_id, supplier_name, supplier_phone, items_text, amount, status, note, created_at, inserted_at
+    `SELECT id, shop_id, supplier_name, supplier_phone, items_text, amount, status, note, created_at, inserted_at,
+            COALESCE(is_sample, 0) AS is_sample
      FROM supplier_purchases WHERE shop_id = ? ${statusSql}
      ORDER BY created_at DESC, id DESC`,
     ...params,
@@ -1101,14 +1133,16 @@ export async function createSupplierPurchase(
     status: "paid" | "pending";
     note?: string | null;
     createdAt?: string;
+    isSample?: number;
   },
 ): Promise<{ id: string }> {
   const db = await getDb();
   const id = crypto.randomUUID();
   const inserted = new Date().toISOString();
+  const isSample = input.isSample ? 1 : 0;
   await db.run(
-    `INSERT INTO supplier_purchases (id, shop_id, supplier_name, supplier_phone, items_text, amount, status, note, created_at, inserted_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO supplier_purchases (id, shop_id, supplier_name, supplier_phone, items_text, amount, status, note, created_at, inserted_at, is_sample)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     shopId,
     input.supplierName.trim(),
@@ -1119,6 +1153,7 @@ export async function createSupplierPurchase(
     input.note?.trim() || null,
     input.createdAt || inserted,
     inserted,
+    isSample,
   );
   return { id };
 }
@@ -1377,4 +1412,118 @@ export async function searchEverywhere(shopId: string, query: string): Promise<S
 
   return results;
 }
+
+export interface SampleDataCounts {
+  hasSample: boolean;
+  customers: number;
+  entries: number;
+  records: number;
+  assets: number;
+  agreements: number;
+  purchases: number;
+  total: number;
+}
+
+export async function getSampleDataCounts(shopId: string): Promise<SampleDataCounts> {
+  const db = await getDb();
+  const [custRow, entryRow, recordRow, assetRow, agreeRow, purRow] = await Promise.all([
+    db.get<{ count: number }>(`SELECT COUNT(*) AS count FROM customers WHERE shop_id = ? AND (is_sample = 1 OR phone LIKE '90000%')`, shopId),
+    db.get<{ count: number }>(`SELECT COUNT(*) AS count FROM entries WHERE shop_id = ? AND (is_sample = 1 OR customer_id IN (SELECT id FROM customers WHERE shop_id = ? AND (is_sample = 1 OR phone LIKE '90000%')))`, shopId, shopId),
+    db.get<{ count: number }>(`SELECT COUNT(*) AS count FROM shop_records WHERE shop_id = ? AND is_sample = 1`, shopId),
+    db.get<{ count: number }>(`SELECT COUNT(*) AS count FROM rental_assets WHERE shop_id = ? AND is_sample = 1`, shopId),
+    db.get<{ count: number }>(`SELECT COUNT(*) AS count FROM rental_agreements WHERE shop_id = ? AND is_sample = 1`, shopId),
+    db.get<{ count: number }>(`SELECT COUNT(*) AS count FROM supplier_purchases WHERE shop_id = ? AND is_sample = 1`, shopId),
+  ]);
+
+  const customers = Number(custRow?.count) || 0;
+  const entries = Number(entryRow?.count) || 0;
+  const records = Number(recordRow?.count) || 0;
+  const assets = Number(assetRow?.count) || 0;
+  const agreements = Number(agreeRow?.count) || 0;
+  const purchases = Number(purRow?.count) || 0;
+  const total = customers + entries + records + assets + agreements + purchases;
+
+  return {
+    hasSample: total > 0,
+    customers,
+    entries,
+    records,
+    assets,
+    agreements,
+    purchases,
+    total,
+  };
+}
+
+export async function hasSampleData(shopId: string): Promise<boolean> {
+  const counts = await getSampleDataCounts(shopId);
+  return counts.hasSample;
+}
+
+export async function clearSampleData(shopId: string): Promise<{ deleted: boolean; counts: SampleDataCounts }> {
+  const db = await getDb();
+  const beforeCounts = await getSampleDataCounts(shopId);
+
+  // 1. Delete rental payments for sample agreements or sample customers
+  await db.run(
+    `DELETE FROM rental_payments WHERE shop_id = ? AND (is_sample = 1 OR agreement_id IN (SELECT id FROM rental_agreements WHERE shop_id = ? AND is_sample = 1) OR customer_id IN (SELECT id FROM customers WHERE shop_id = ? AND (is_sample = 1 OR phone LIKE '90000%')))`,
+    shopId,
+    shopId,
+    shopId,
+  );
+
+  // 2. Delete rental agreements
+  await db.run(
+    `DELETE FROM rental_agreements WHERE shop_id = ? AND (is_sample = 1 OR customer_id IN (SELECT id FROM customers WHERE shop_id = ? AND (is_sample = 1 OR phone LIKE '90000%')))`,
+    shopId,
+    shopId,
+  );
+
+  // 3. Delete rental assets
+  await db.run(
+    `DELETE FROM rental_assets WHERE shop_id = ? AND is_sample = 1`,
+    shopId,
+  );
+
+  // 4. Delete supplier purchases
+  await db.run(
+    `DELETE FROM supplier_purchases WHERE shop_id = ? AND is_sample = 1`,
+    shopId,
+  );
+
+  // 5. Delete shop records (bills, rent paid)
+  await db.run(
+    `DELETE FROM shop_records WHERE shop_id = ? AND is_sample = 1`,
+    shopId,
+  );
+
+  // 6. Delete ledger entries
+  await db.run(
+    `DELETE FROM entries WHERE shop_id = ? AND (is_sample = 1 OR customer_id IN (SELECT id FROM customers WHERE shop_id = ? AND (is_sample = 1 OR phone LIKE '90000%')))`,
+    shopId,
+    shopId,
+  );
+
+  // 7. Delete memory nodes
+  await db.run(
+    `DELETE FROM memory_nodes WHERE shop_id = ? AND (phone LIKE '90000%' OR customer_id IN (SELECT id FROM customers WHERE shop_id = ? AND (is_sample = 1 OR phone LIKE '90000%')))`,
+    shopId,
+    shopId,
+  );
+
+  // 8. Delete sample customers
+  await db.run(
+    `DELETE FROM customers WHERE shop_id = ? AND (is_sample = 1 OR phone LIKE '90000%')`,
+    shopId,
+  );
+
+  // 9. Recompute remaining customers' balances to ensure ledger consistency
+  const remaining = await db.all<{ id: string }>(`SELECT id FROM customers WHERE shop_id = ?`, shopId);
+  for (const c of remaining) {
+    await recompute(db, shopId, c.id);
+  }
+
+  return { deleted: true, counts: beforeCounts };
+}
+
 

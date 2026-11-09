@@ -26,6 +26,18 @@ export function Badge({ tone, children }: { tone: "due" | "paid" | "neutral" | "
   return <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${color}`}>{children}</span>;
 }
 
+export function SampleTag({ className = "", text = "Sample Data" }: { className?: string; text?: string }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800 shrink-0 ${className}`}
+      title="Demo Sample Data"
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+      {text}
+    </span>
+  );
+}
+
 export function EmptyState({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
   return (
     <div className="grid place-items-center rounded-xl border border-border bg-white px-6 py-16 text-center">

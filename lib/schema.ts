@@ -149,6 +149,13 @@ ALTER TABLE entries ADD COLUMN due_date TEXT;
 ALTER TABLE customers ADD COLUMN credit_limit INTEGER DEFAULT 0;
 ALTER TABLE shop_records ADD COLUMN is_recurring INTEGER DEFAULT 0;
 ALTER TABLE shop_records ADD COLUMN recurring_day INTEGER;
+ALTER TABLE customers ADD COLUMN is_sample INTEGER DEFAULT 0;
+ALTER TABLE entries ADD COLUMN is_sample INTEGER DEFAULT 0;
+ALTER TABLE shop_records ADD COLUMN is_sample INTEGER DEFAULT 0;
+ALTER TABLE rental_assets ADD COLUMN is_sample INTEGER DEFAULT 0;
+ALTER TABLE rental_agreements ADD COLUMN is_sample INTEGER DEFAULT 0;
+ALTER TABLE rental_payments ADD COLUMN is_sample INTEGER DEFAULT 0;
+ALTER TABLE supplier_purchases ADD COLUMN is_sample INTEGER DEFAULT 0;
 `;
 
 export function schemaSql(): string {
