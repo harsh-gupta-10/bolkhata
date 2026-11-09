@@ -1,0 +1,13 @@
+{
+  "name": "bolkhata",
+  "account_id": "b1d481965d10a5b83a86f3ba67c2e0ed",
+  "compatibility_date": "2026-11-06",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "bolkhata",
+      "database_id": "03b9667a-d1b1-4124-88a8-fe9e8bc3a561"
+    }
+  ]
+}
