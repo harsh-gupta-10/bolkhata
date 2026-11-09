@@ -17,15 +17,18 @@ import {
   Receipt,
   Search,
   Settings,
+  Sparkles,
+  Trash2,
   Truck,
   Users,
   X,
 } from "lucide-react";
 import { formatRupees } from "@/lib/format";
 import type { CopyKey } from "@/lib/i18n";
-import { Mark } from "@/components/ui-bits";
+import { Mark, SampleTag } from "@/components/ui-bits";
 import { blankDraft, useShop, type WorkIntent } from "@/components/shop-provider";
 import { leaveShop } from "@/lib/firebase-client";
+import { computeSampleStats, SampleGlobalBanner, SampleRemoveModal } from "@/components/sample-controls";
 
 const LINKS: { href: string; label: CopyKey; icon: any }[] = [
   { href: "/app", label: "nav_home", icon: House },
@@ -100,6 +103,20 @@ export function ShopShell({ children }: { children: React.ReactNode }) {
     shop.openDraft(blankDraft(intent, "manual"));
   }
 
+  const sampleStats = computeSampleStats(shop);
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
+  const [loadingSample, setLoadingSample] = useState(false);
+
+  async function handleLoadSample() {
+    setLoadingSample(true);
+    try {
+      await fetch("/api/sample", { method: "POST" });
+      await shop.reload();
+    } finally {
+      setLoadingSample(false);
+    }
+  }
+
   const nav = (
     <nav className="flex flex-1 flex-col gap-0.5 px-2 pb-4" aria-label="Dukaan">
       {LINKS.map((item) => {
@@ -123,6 +140,36 @@ export function ShopShell({ children }: { children: React.ReactNode }) {
           </Link>
         );
       })}
+
+      {/* Quick Dummy Data Action in Sidebar / Drawer */}
+      <div className="mt-2 border-t border-border/60 pt-2">
+        {sampleStats.hasSample ? (
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              setShowRemoveModal(true);
+            }}
+            className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-[13px] font-semibold text-red-600 hover:bg-red-50 md:h-9 md:min-h-0 transition-colors"
+          >
+            <Trash2 size={16} strokeWidth={1.75} />
+            <span className="flex-1 text-left">{shop.text("remove_dummy_data")}</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={loadingSample}
+            onClick={async () => {
+              setOpen(false);
+              await handleLoadSample();
+            }}
+            className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-[13px] font-semibold text-[#1f6b45] hover:bg-[#e7f5ee] md:h-9 md:min-h-0 transition-colors"
+          >
+            <Sparkles size={16} strokeWidth={1.75} />
+            <span className="flex-1 text-left">{loadingSample ? "..." : shop.text("load_dummy_data")}</span>
+          </button>
+        )}
+      </div>
     </nav>
   );
 
@@ -131,9 +178,14 @@ export function ShopShell({ children }: { children: React.ReactNode }) {
       <aside className="hidden w-60 shrink-0 flex-col border-r border-border bg-white md:flex">
         <Link href="/app" className="flex items-center gap-2 px-4 py-4">
           <Mark />
-          <span>
-            <span className="block text-sm font-semibold">BolKhata</span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold truncate">BolKhata</span>
             <span className="block truncate text-xs text-[#616161]">{data.shop.name}</span>
+            {sampleStats.hasSample ? (
+              <span className="mt-1 block">
+                <SampleTag text={shop.text("demo_mode_badge")} />
+              </span>
+            ) : null}
           </span>
         </Link>
         {nav}
@@ -145,7 +197,14 @@ export function ShopShell({ children }: { children: React.ReactNode }) {
           <aside className="absolute inset-y-0 left-0 flex w-72 flex-col bg-white">
             <div className="flex items-center gap-2 px-4 py-4">
               <Mark />
-              <span className="text-sm font-semibold">{data.shop.name}</span>
+              <div className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold truncate">{data.shop.name}</span>
+                {sampleStats.hasSample ? (
+                  <span className="mt-0.5 block">
+                    <SampleTag text={shop.text("demo_mode_badge")} />
+                  </span>
+                ) : null}
+              </div>
             </div>
             {nav}
           </aside>
@@ -279,6 +338,30 @@ export function ShopShell({ children }: { children: React.ReactNode }) {
             )}
           </div>
 
+          {/* Quick Dummy Data button in Header */}
+          {sampleStats.hasSample ? (
+            <button
+              type="button"
+              onClick={() => setShowRemoveModal(true)}
+              className="hidden lg:inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 hover:bg-red-100 px-3 py-1 text-xs font-semibold text-red-700 shrink-0 transition-colors"
+              title={shop.text("remove_dummy_data")}
+            >
+              <Trash2 size={13} />
+              <span>{shop.text("remove_dummy_data")}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={loadingSample}
+              onClick={handleLoadSample}
+              className="hidden lg:inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 px-3 py-1 text-xs font-semibold text-[#1f6b45] shrink-0 transition-colors"
+              title={shop.text("load_dummy_data")}
+            >
+              <Sparkles size={13} />
+              <span>{loadingSample ? "..." : shop.text("load_dummy_data")}</span>
+            </button>
+          )}
+
           <div className="relative shrink-0">
             <button type="button" className="btn btn-secondary h-11 px-3" onClick={() => setAddOpen((value) => !value)}>
               <Plus size={16} /> <span className="hidden sm:inline">{shop.text("new")}</span>
@@ -309,7 +392,9 @@ export function ShopShell({ children }: { children: React.ReactNode }) {
             {shop.text("sign_out")}
           </button>
         </header>
+        <SampleGlobalBanner />
         <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
+        <SampleRemoveModal open={showRemoveModal} onOpenChange={setShowRemoveModal} />
       </div>
     </div>
   );

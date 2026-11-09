@@ -134,13 +134,25 @@ export function SupplierView() {
             <Package className="mx-auto text-[#616161]" size={36} />
             <p className="mt-3 text-base font-semibold text-[#1a1c1e]">Abhi koi supplier purchase nahi hai</p>
             <p className="mt-1 text-sm text-[#616161]">Atta, cheeni, tel jaisa dukan ka maal likho aur rate yaad rakho.</p>
-            <button
-              type="button"
-              className="btn btn-primary mt-4"
-              onClick={() => setShowAddModal(true)}
-            >
-              <Plus size={16} /> {shop.text("add_purchase")}
-            </button>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setShowAddModal(true)}
+              >
+                <Plus size={16} /> {shop.text("add_purchase")}
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary font-medium"
+                onClick={async () => {
+                  await fetch("/api/sample", { method: "POST" });
+                  await shop.reload();
+                }}
+              >
+                ✨ {shop.text("load_dummy_data")}
+              </button>
+            </div>
           </div>
         ) : (
           <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">

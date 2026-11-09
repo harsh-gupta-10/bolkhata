@@ -21,6 +21,9 @@ export function SettingsView() {
         <h1 className="text-xl font-semibold">{shop.text("nav_settings")}</h1>
         <p className="mt-1 text-sm text-[#616161]">{shop.text("settings_intro")}</p>
 
+        {/* Dummy / Sample Data Management (High Visibility) */}
+        <SampleSection note={note} setNote={setNote} />
+
         <form
           className="mt-5 space-y-3 rounded-xl border border-border bg-white p-4"
           onSubmit={async (event) => {
@@ -79,8 +82,6 @@ export function SettingsView() {
             </button>
           </div>
         </section>
-
-        <SampleSection note={note} setNote={setNote} />
 
         <button
           type="button"
@@ -150,36 +151,39 @@ function SampleSection({ note, setNote }: { note: string; setNote: (value: strin
   };
 
   return (
-    <section className="mt-4 rounded-xl border border-border bg-white p-4">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold">{shop.text("sample_title")}</h2>
-        {hasSample ? <SampleTag text={shop.text("sample_badge_active")} /> : null}
+    <section className={`mt-4 rounded-xl border p-4 shadow-sm ${hasSample ? "border-amber-300 bg-amber-50/50" : "border-border bg-white"}`}>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">{hasSample ? "🧪" : "💡"}</span>
+          <h2 className="text-sm font-bold text-[#1a1c1e]">{shop.text("dummy_data_title")}</h2>
+        </div>
+        {hasSample ? <SampleTag text={shop.text("demo_mode_badge")} /> : null}
       </div>
 
-      <p className="mt-1 text-sm leading-6 text-[#616161]">
-        {hasSample ? shop.text("sample_badge_desc") : shop.text("sample_help")}
+      <p className="mt-1 text-xs leading-5 text-[#616161]">
+        {hasSample ? shop.text("dummy_data_desc_active") : shop.text("dummy_data_desc_empty")}
       </p>
 
       {hasSample ? (
         <div className="mt-3 space-y-3">
           {/* Breakdown summary pills */}
-          <div className="flex flex-wrap gap-1.5 text-xs text-[#616161]">
-            <span className="inline-flex items-center rounded bg-[#f1f2f4] px-2 py-0.5 font-medium">
+          <div className="flex flex-wrap gap-1.5 text-xs text-amber-900">
+            <span className="inline-flex items-center rounded-md bg-white border border-amber-200 px-2 py-0.5 font-medium shadow-xs">
               {sampleCustomers.length} Grahak
             </span>
-            <span className="inline-flex items-center rounded bg-[#f1f2f4] px-2 py-0.5 font-medium">
+            <span className="inline-flex items-center rounded-md bg-white border border-amber-200 px-2 py-0.5 font-medium shadow-xs">
               {sampleEntries.length} Khata Lines
             </span>
-            <span className="inline-flex items-center rounded bg-[#f1f2f4] px-2 py-0.5 font-medium">
+            <span className="inline-flex items-center rounded-md bg-white border border-amber-200 px-2 py-0.5 font-medium shadow-xs">
               {sampleRecords.length} Bills/Rent
             </span>
-            <span className="inline-flex items-center rounded bg-[#f1f2f4] px-2 py-0.5 font-medium">
+            <span className="inline-flex items-center rounded-md bg-white border border-amber-200 px-2 py-0.5 font-medium shadow-xs">
               {sampleAssets.length} Rental Assets
             </span>
-            <span className="inline-flex items-center rounded bg-[#f1f2f4] px-2 py-0.5 font-medium">
+            <span className="inline-flex items-center rounded-md bg-white border border-amber-200 px-2 py-0.5 font-medium shadow-xs">
               {sampleAgreements.length} Agreements
             </span>
-            <span className="inline-flex items-center rounded bg-[#f1f2f4] px-2 py-0.5 font-medium">
+            <span className="inline-flex items-center rounded-md bg-white border border-amber-200 px-2 py-0.5 font-medium shadow-xs">
               {samplePurchases.length} Suppliers
             </span>
           </div>
@@ -192,10 +196,10 @@ function SampleSection({ note, setNote }: { note: string; setNote: (value: strin
                 <button
                   type="button"
                   disabled={loading}
-                  className="btn bg-red-600 text-white hover:bg-red-700 h-9 px-3 text-xs font-medium"
+                  className="btn bg-red-600 text-white hover:bg-red-700 h-9 px-3.5 text-xs font-semibold shadow-sm"
                   onClick={handleRemoveSample}
                 >
-                  {loading ? "..." : shop.text("sample_remove_confirm_btn")}
+                  {loading ? "..." : `🗑️ ${shop.text("sample_remove_confirm_btn")}`}
                 </button>
                 <button
                   type="button"
@@ -212,18 +216,18 @@ function SampleSection({ note, setNote }: { note: string; setNote: (value: strin
               <button
                 type="button"
                 disabled={loading}
-                className="btn border border-red-200 bg-white text-red-600 hover:bg-red-50 hover:border-red-300 font-medium"
+                className="btn bg-red-600 hover:bg-red-700 text-white h-9 px-3.5 text-xs font-semibold shadow-sm"
                 onClick={() => setConfirmRemove(true)}
               >
-                {shop.text("sample_remove")}
+                🗑️ {shop.text("remove_dummy_data")}
               </button>
               <button
                 type="button"
                 disabled={loading}
-                className="btn btn-secondary text-xs"
+                className="btn border border-amber-300 bg-white hover:bg-amber-100 text-amber-900 h-9 px-3 text-xs font-medium shadow-xs"
                 onClick={handleLoadSample}
               >
-                {loading ? "..." : shop.text("sample_reload")}
+                {loading ? "..." : `🔄 ${shop.text("reload_dummy_data")}`}
               </button>
             </div>
           )}
@@ -232,11 +236,11 @@ function SampleSection({ note, setNote }: { note: string; setNote: (value: strin
         <div className="mt-3">
           <button
             type="button"
-            className="btn btn-secondary"
+            className="btn btn-primary font-semibold h-9 px-4 text-xs"
             disabled={loading}
             onClick={handleLoadSample}
           >
-            {loading ? "..." : shop.text("sample_load")}
+            {loading ? "..." : `+ ${shop.text("load_dummy_data")}`}
           </button>
         </div>
       )}

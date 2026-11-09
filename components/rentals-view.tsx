@@ -224,13 +224,25 @@ export function RentalsView({ initialTab = "income" }: { initialTab?: "income" |
             <Building2 className="mx-auto text-[#616161]" size={36} />
             <p className="mt-3 text-base font-semibold text-[#1a1c1e]">Koi rental asset nahi mila</p>
             <p className="mt-1 text-sm text-[#616161]">Dukaan, kamra, ya chakki kiraye par dene ke liye jodo.</p>
-            <button
-              type="button"
-              className="btn btn-primary mt-4"
-              onClick={() => setShowAddAsset(true)}
-            >
-              <Plus size={16} /> {shop.text("add_asset")}
-            </button>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setShowAddAsset(true)}
+              >
+                <Plus size={16} /> {shop.text("add_asset")}
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary font-medium"
+                onClick={async () => {
+                  await fetch("/api/sample", { method: "POST" });
+                  await shop.reload();
+                }}
+              >
+                ✨ {shop.text("load_dummy_data")}
+              </button>
+            </div>
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

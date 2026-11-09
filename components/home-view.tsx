@@ -4,6 +4,7 @@ import Link from "next/link";
 import { formatPhone, formatRupees, formatWhen } from "@/lib/format";
 import { blankDraft, useShop } from "@/components/shop-provider";
 import { Badge } from "@/components/ui-bits";
+import { SampleHomeCard } from "@/components/sample-controls";
 
 export function HomeView() {
   const shop = useShop();
@@ -52,6 +53,9 @@ export function HomeView() {
           </button>
         </div>
       </div>
+
+      {/* Sample / Dummy Data Notice Card */}
+      <SampleHomeCard />
 
       {/* Daily Cash Summary (Aaj ka hisaab) */}
       <section className="mb-5 rounded-2xl border border-border bg-white p-4 shadow-sm sm:p-5">
@@ -138,8 +142,22 @@ export function HomeView() {
         {activity.length === 0 ? (
           <div className="rounded-xl border border-border bg-white px-6 py-14 text-center">
             <h2 className="text-base font-semibold">{shop.text("empty_activity")}</h2>
-            <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-[#616161]">Nayi dukaan khaali hoti hai. Udhaar likho, ya Baat mein bolo. Sample data Settings mein hai, aur sirf nakli numbers use karta hai.</p>
-            <button type="button" className="btn btn-primary mt-4" onClick={() => shop.openDraft(blankDraft("udhaar", "manual"))}>Add udhaar</button>
+            <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-[#616161]">{shop.text("demo_banner_empty")}</p>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              <button type="button" className="btn btn-primary" onClick={() => shop.openDraft(blankDraft("udhaar", "manual"))}>
+                + Add udhaar
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary font-semibold"
+                onClick={async () => {
+                  await fetch("/api/sample", { method: "POST" });
+                  await shop.reload();
+                }}
+              >
+                ✨ {shop.text("load_dummy_data")}
+              </button>
+            </div>
           </div>
         ) : (
           <ul className="overflow-hidden rounded-xl border border-border bg-white">

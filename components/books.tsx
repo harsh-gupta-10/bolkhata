@@ -57,7 +57,31 @@ export function EntryBook({ type }: { type: "udhaar" | "payment" }) {
       <p className="mb-3 text-sm text-[#616161]">{type === "udhaar" ? `${shop.text("owed")} ${formatRupees(outstanding)}` : `${shop.text("in_list")} ${formatRupees(received)}`}</p>
       <Filters query={query} onQuery={setQuery} span={span} onSpan={setSpan} />
       {rows.length === 0 ? (
-        <EmptyState title={type === "udhaar" ? shop.text("empty_udhaar") : shop.text("empty_jama")} body={shop.text("home_line")} action={<button type="button" className="btn btn-primary" onClick={() => shop.openDraft(blankDraft(type === "udhaar" ? "udhaar" : "payment", "manual"))}>{type === "udhaar" ? shop.text("add_udhaar") : shop.text("add_jama")}</button>} />
+        <EmptyState
+          title={type === "udhaar" ? shop.text("empty_udhaar") : shop.text("empty_jama")}
+          body={shop.text("home_line")}
+          action={
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => shop.openDraft(blankDraft(type === "udhaar" ? "udhaar" : "payment", "manual"))}
+              >
+                {type === "udhaar" ? shop.text("add_udhaar") : shop.text("add_jama")}
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary font-medium"
+                onClick={async () => {
+                  await fetch("/api/sample", { method: "POST" });
+                  await shop.reload();
+                }}
+              >
+                ✨ {shop.text("load_dummy_data")}
+              </button>
+            </div>
+          }
+        />
       ) : (
         <DataTable
           rows={rows}
@@ -179,7 +203,31 @@ export function RecordBook({ kind }: { kind: "rent" | "bill" }) {
         ))}
       </div>
       {rows.length === 0 ? (
-        <EmptyState title={kind === "rent" ? shop.text("empty_rent") : shop.text("empty_bills")} body={kind === "rent" ? shop.text("empty_rent_body") : shop.text("empty_bills_body")} action={<button type="button" className="btn btn-primary" onClick={() => shop.openDraft(blankDraft(kind, "manual"))}>{kind === "rent" ? shop.text("add_kiraya") : shop.text("add_bill")}</button>} />
+        <EmptyState
+          title={kind === "rent" ? shop.text("empty_rent") : shop.text("empty_bills")}
+          body={kind === "rent" ? shop.text("empty_rent_body") : shop.text("empty_bills_body")}
+          action={
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => shop.openDraft(blankDraft(kind, "manual"))}
+              >
+                {kind === "rent" ? shop.text("add_kiraya") : shop.text("add_bill")}
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary font-medium"
+                onClick={async () => {
+                  await fetch("/api/sample", { method: "POST" });
+                  await shop.reload();
+                }}
+              >
+                ✨ {shop.text("load_dummy_data")}
+              </button>
+            </div>
+          }
+        />
       ) : (
         <DataTable
           rows={rows}
@@ -298,7 +346,31 @@ export function PeopleBook() {
       {pickerNote ? <p className="mb-3 text-sm text-[#616161]">{pickerNote}</p> : null}
       <input className="field mb-3 w-full sm:max-w-xs" value={query} placeholder={shop.text("search")} aria-label={shop.text("search")} onChange={(event) => setQuery(event.target.value)} />
       {rows.length === 0 ? (
-        <EmptyState title={shop.text("empty_people")} body={shop.text("chat_body")} action={<button type="button" className="btn btn-primary" onClick={() => shop.openDraft(blankDraft("add_customer", "manual"))}>{shop.text("add_customer")}</button>} />
+        <EmptyState
+          title={shop.text("empty_people")}
+          body={shop.text("chat_body")}
+          action={
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => shop.openDraft(blankDraft("add_customer", "manual"))}
+              >
+                {shop.text("add_customer")}
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary font-medium"
+                onClick={async () => {
+                  await fetch("/api/sample", { method: "POST" });
+                  await shop.reload();
+                }}
+              >
+                ✨ {shop.text("load_dummy_data")}
+              </button>
+            </div>
+          }
+        />
       ) : (
         <DataTable
           rows={rows}
